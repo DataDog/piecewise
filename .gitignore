@@ -1,0 +1,6 @@
+*.pyc
+
+# Ignore files generated during `python setup.py install`
+build/
+dist/
+piecewise.egg-info/
