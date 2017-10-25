@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 
 # prj
-from regressor import piecewise
+from .regressor import piecewise
 
 
 def plot_data_with_regression(t, v, min_stop_frac=0.03):
