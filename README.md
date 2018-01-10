@@ -12,10 +12,10 @@ The package's core `piecewise()` function for regression requires only `numpy`. 
 
 ## Usage
 
-Start by importing the `piecewise()` function and shaping your data into list-likes of timestamps (independent variables) and values (dependent variables).
+Start by preparing your data as list-likes of timestamps (independent variables) and values (dependent variables).
 
 ```
-from piecewise.regressor import piecewise
+import numpy as np
 
 t = np.arange(10)
 v = np.array(
@@ -24,9 +24,11 @@ v = np.array(
 ) + np.random.normal(0, 1, 10)
 ```
 
-Now, you're ready to fit a piecewise linear regression.
+Now, you're ready to import the `piecewise()` function and fit a piecewise linear regression.
 
 ```
+from piecewise.regressor import piecewise
+
 model = piecewise(t, v)
 ```
 
