@@ -97,3 +97,23 @@ class TestPiecewise(unittest.TestCase):
         np.testing.assert_equal(seg2.end_t, 2.3)
         np.testing.assert_almost_equal(seg2.coeffs[0], 5)
         np.testing.assert_almost_equal(seg2.coeffs[1], 0)
+
+    def test_non_unique_ts(self):
+        """ A dataset with multiple values with the same t should not break the
+        code, and all points with the same t should be assigned to the same
+        segment.
+        """
+        # Generate some data.
+        t1 = [t for t in range(100)]
+        v1 = [v for v in np.random.normal(3, 1, 100)]
+        t2 = [t for t in range(99, 199)]
+        v2 = [v for v in np.random.normal(20, 1, 100)]
+        t = t1 + t2
+        v = v1 + v2
+        # Fit the piecewise regression.
+        model = piecewise(t, v)
+        # There should be two segments, and the split shouldn't be in the middle
+        # of t=99.
+        np.testing.assert_equal(len(model.segments), 2)
+        seg1, seg2 = model.segments
+        assert seg1.end_t == seg2.start_t
