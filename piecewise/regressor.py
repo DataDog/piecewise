@@ -199,7 +199,7 @@ class SegmentTracker(object):
 
 
 def _preprocess(t, v):
-    """ Raises and exception if any of the inputs are not valid.
+    """ Raises an exception if any of the inputs are not valid.
     Otherwise, returns a list of Points, ordered by t.
     """
     # Validate the inputs.
