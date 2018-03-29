@@ -199,7 +199,7 @@ class SegmentTracker(object):
 
 
 def _preprocess(t, v):
-    """ Raises and exception if any of the inputs are not valid.
+    """ Raises an exception if any of the inputs are not valid.
     Otherwise, returns a list of Points, ordered by t.
     """
     # Validate the inputs.
@@ -212,8 +212,6 @@ def _preprocess(t, v):
     if np.sum(finite_mask) < 2:
         raise ValueError('`v` must have at least 2 finite values.')
     t_arr, v_arr = t_arr[finite_mask], v_arr[finite_mask]
-    if len(np.unique(t_arr)) != len(t_arr):
-        raise ValueError('All `t` values must be unique.')
 
     # Order both arrays by t-values.
     sort_order = np.argsort(t_arr)
@@ -237,17 +235,42 @@ def _get_initial_segments(t, v):
     still be suboptimal initializations, as in this case, where the two 1s will
     be initialized in the same segment: [19, 10, 1, 1, -8, -17]
     """
+    # If there are multiple values at the same t, average them and treat them
+    # like a single point during initialization. This ensures that all the
+    # points with the same t are assigned to the same linear segment.
+    index_ranges, averages = [], []
+    start_index, last_t = 0, t[0]
+    for i in range(1, len(t)):
+        if t[i] != last_t:
+            index_ranges.append((start_index, i))
+            averages.append(np.mean(v[start_index:i]))
+            start_index = i
+            last_t = t[i]
+    index_ranges.append((start_index, i+1))
+    averages.append(np.mean(v[start_index:]))
+
+    # Pair every other t with the t on its left or on its right, based on which
+    # is closer.
     seed_assignments = defaultdict(list)
-    for i in range(1, len(t), 2):
-        left_diff = abs(v[i-1] - v[i])
-        right_diff = abs(v[i+1] - v[i]) if len(v) > i+1 else np.inf
+    for i in range(1, len(averages), 2):
+        left_diff = abs(averages[i-1] - averages[i])
+        right_diff = abs(averages[i+1] - averages[i]) if len(averages) > i+1 else np.inf
         best_seed = i-1 if left_diff < right_diff else i+1
         seed_assignments[best_seed].append(i)
+
+    # Build the Segment objects.
     segments = []
-    for i in range(0, len(t), 2):
-        indices = seed_assignments[i] + [i]
-        start_index, end_index = min(indices), max(indices)+1
+    for i in range(0, len(index_ranges), 2):
+        start_index = min([
+            index_ranges[j][0]
+            for j in seed_assignments[i] + [i]
+        ])
+        end_index = max([
+            index_ranges[j][1]
+            for j in seed_assignments[i] + [i]
+        ])
         segments.append(_make_segment(t, v, start_index, end_index))
+
     return segments
 
 
