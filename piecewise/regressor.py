@@ -246,9 +246,8 @@ def _get_initial_segments(t, v):
             averages.append(np.mean(v[start_index:i]))
             start_index = i
             last_t = t[i]
-        if i == len(t) - 1:
-            index_ranges.append((start_index, i+1))
-            averages.append(np.mean(v[start_index:]))
+    index_ranges.append((start_index, i+1))
+    averages.append(np.mean(v[start_index:]))
 
     # Pair every other t with the t on its left or on its right, based on which
     # is closer.
