@@ -8,7 +8,7 @@ This package was written to work with both Python 2 and Python 3.
 
 To install this package using setup tools, clone this repo and run `python setup.py install` from within the `piecewise` root directory.
 
-The package's core `piecewise()` function for regression requires only `numpy`. The use of `plot_data_with_regression()` for plotting depends also on `matplotlib`.
+The package's core `piecewise()` function for regression requires only `numpy`. The use of `piecewise_plot()` for plotting depends also on `matplotlib`.
 
 ## Usage
 
@@ -27,7 +27,7 @@ v = np.array(
 Now, you're ready to import the `piecewise()` function and fit a piecewise linear regression.
 
 ```
-from piecewise.regressor import piecewise
+from piecewise import piecewise
 
 model = piecewise(t, v)
 ```
@@ -57,12 +57,16 @@ If you want to interpolate or extrapolate, you can use the `FittedModel`'s `pred
 array([  6.92915647, -96.24799517])
 ```
 
-To see a plot, instead of getting a `FittedModel`, use `plot_data_with_regression()`.
+To see a plot, instead of getting a `FittedModel`, use `piecewise_plot()`.  You may also use an existing `FittedModel`.
 
 ```
-from piecewise.plotter import plot_data_with_regression
+from piecewise import piecewise_plot
 
-plot_data_with_regression(t, v)
+# using an existing FittedModel
+piecewise_plot(t, v, model=model)
+
+# fitting a model on the fly
+piecewise_plot(t, v)
 ```
 
 <img src="/img/example_regression.png" width="400px">
