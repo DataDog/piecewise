@@ -322,28 +322,37 @@ def _get_initial_segments_and_merges(t, v):
         dt = segment_t - mu_t
         dv = segment_v - mu_v
 
-        # var(t) and cov(t, v), before division by n, unmasked
+        # var(t), var(v) and cov(t, v), before division by n, unmasked
         ct = np.ma.getdata(np.ma.sum(dt ** 2, axis=1))
+        cv = np.ma.getdata(np.ma.sum(dv ** 2, axis=1))
         ctv = np.ma.getdata(np.ma.sum(dt * dv, axis=1))
         
         # slope and intercept
         # for single point segments (ct == 0), assume slope = 0, intercept = mean(v)
-        slope = np.where(ct > 0, ctv, 0.0)
-        slope = np.divide(slope, ct, out=slope, where = ct > 0).reshape(-1, 1)
+        nonzero_ct = ct > 0
+        slope = np.where(nonzero_ct, ctv, 0.0)
+        slope = np.divide(slope, ct, out=slope, where=nonzero_ct).reshape(-1, 1)
         intercept = mu_v - slope * mu_t
 
         # sum of squared errors
-        error = np.ma.getdata(
-            np.ma.sum((segment_t * slope + intercept - segment_v) ** 2, axis=1)
-        ).flatten()
-        error[n < 3] = 0.0 # floating point imprecisions
+        # if n < 3: error = 0
+        # elif ct == 0: error = cv
+        # else: error = cv - ctv ** 2 / ct
+
+        nonzero_error = n >= 3
+        nonzero_ct &= nonzero_error
+        error = np.where(nonzero_ct, ctv, 0.0) # 0, 0, ctv
+        np.square(error, out=error, where=nonzero_ct) # 0, 0, ctv ** 2
+        np.divide(error, ct, out=error, where=nonzero_ct) # 0, 0, ctv ** 2 / ct
+        np.subtract(cv, error, out=error, where=nonzero_error) # 0, cv, cv - ctv ** 2 / ct
+
 
         return [
             Segment(
                 ranges[i, 0], ranges[i, 1], (intercept[i, 0], slope[i, 0]), error[i],
                 cov_data
             )
-            for i, cov_data in enumerate(np.c_[n, st, sv, ct, ctv])
+            for i, cov_data in enumerate(np.c_[n, st, sv, ct, cv, ctv])
         ]
     
     # If there are multiple values at the same t, average them and treat them
@@ -445,25 +454,9 @@ def _merge_cov_data(d1, d2):
     deltat = (d1[1] * n2 - d2[1] * n1) / n12
     deltav = (d1[2] * n2 - d2[2] * n1) / n12
     d3[3] += deltat ** 2 * n12 / n3
-    d3[4] += deltat * deltav * n12 / n3
+    d3[4] += deltav ** 2 * n12 / n3
+    d3[5] += deltat * deltav * n12 / n3
     return d3
-
-try:
-    # use numexpr, if available, to compute regression error.
-    import numexpr as ne
-
-    _err_expr = ne.NumExpr(
-        'sum((t * slope + intercept - v) ** 2)', (
-            ('t', np.double), ('v', np.double),
-            ('intercept', np.double), ('slope', np.double)
-        )
-    )
-except ImportError:
-    # or do it by hand
-    def _err_expr(t, v, intercept, slope):
-        error = t * slope + intercept - v
-        error **= 2
-        return np.sum(error)
 
 def _fit_line(t, v, start_index, end_index, cov_data):
     """ Fits and OLS regression for the set of t and v values in the given index
@@ -472,17 +465,15 @@ def _fit_line(t, v, start_index, end_index, cov_data):
 
     # based on scipy.stats.linregress
     mu_t, mu_v = cov_data[1:3] / cov_data[0]
-    ct, ctv  = cov_data[3:]
+    ct, cv, ctv = cov_data[3:]
     if ct != 0:
         slope = ctv / ct
         intercept = mu_v - slope * mu_t
+        error = cv - ctv ** 2 / ct
     else:
-        slope, intercept = 0.0, mu_v
+        slope, intercept, error = 0.0, mu_v, cv
 
-    return (
-        (intercept, slope),
-        _err_expr(t[start_index:end_index], v[start_index:end_index], intercept, slope)
-    )
+    return ((intercept, slope), error)
 
 
 def _predict(coeffs, t, out=None, where=True):
