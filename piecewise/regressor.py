@@ -94,8 +94,8 @@ class FittedSegment(namedtuple('FittedSegment',
         'coeffs'    # (tuple of floats) regression coefficients
     ]
 )):
-    def predict(self, t_new, out=None, **ufunc_kwargs):
-        return _predict(self.coeffs, t_new, out=out, **ufunc_kwargs)
+    def predict(self, t_new, out=None, where=True):
+        return _predict(self.coeffs, t_new, out=out, where=where)
 
 
 class FittedModel(object):
@@ -115,20 +115,22 @@ class FittedModel(object):
     def predict(self, t_new):
         """ Use the segments in this model to predict the v value for new t values.
         Params:
-            t_new (np.array): t values for which predictions should be made
+            t_new (scalar or array like): t values for which predictions should be made
         Returns:
-            np.array of predictions
+            scalar or array like of predictions
         """
-        t_new = np.asanyarray(t_new)
         if len(self.segments) == 1:
             return self.segments[0].predict(t_new)
-        
-        seg_index = np.digitize(t_new, [s.end_t for s in self.segments[:-1]])
-        
-        v_hats = np.empty_like(t_new, dtype=np.double)
-        for i, segment in enumerate(self.segments):
-            segment.predict(t_new, out=v_hats, where=seg_index == i)
-        return v_hats
+
+        t_array = np.asanyarray(t_new)
+        seg_index = np.digitize(t_array, [s.end_t for s in self.segments[:-1]])
+        if seg_index.shape == (): # t_new is a scalar or 0-dimensional array
+            return self.segments[seg_index].predict(t_new)
+        else:
+            v_hats = np.empty_like(t_array, dtype=np.double)
+            for i, segment in enumerate(self.segments):
+                segment.predict(t_array, out=v_hats, where=seg_index == i)
+            return v_hats
 
 
 ## Data structures used during the fitting of the regression in `piecewise()`.
@@ -483,13 +485,16 @@ def _fit_line(t, v, start_index, end_index, cov_data):
     )
 
 
-def _predict(coeffs, t, out=None, **ufunc_kwargs):
+def _predict(coeffs, t, out=None, where=True):
     """ Given OLS coefficients, predict the corresponding v values for the given
     t values.
     """
-    t = np.asanyarray(t)
-    if out is None:
-        out = np.empty_like(t, dtype=np.double)
-    np.multiply(t, coeffs[1], out=out, **ufunc_kwargs)
-    np.add(out, coeffs[0], out=out, **ufunc_kwargs)
-    return out
+    # if out is None, numpy allocates an empty one
+    out = np.multiply(t, coeffs[1], out=out, where=where)
+    if np.isscalar(out):
+        # t was either a scalar or a 0-dimensional array
+        # returning a scalar is consistent with numpy arithmetic operations
+        return out + coeffs[0]
+    else:
+        np.add(out, coeffs[0], out=out, where=where)
+        return out
