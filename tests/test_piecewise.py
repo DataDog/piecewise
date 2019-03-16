@@ -5,7 +5,7 @@ import unittest
 import numpy as np
 
 # prj
-from piecewise.regressor import piecewise
+from piecewise import piecewise
 
 
 class TestPiecewise(unittest.TestCase):
