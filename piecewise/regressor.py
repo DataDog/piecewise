@@ -1,6 +1,5 @@
 # std
-import bisect
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 import heapq
 
 # 3p
@@ -39,7 +38,7 @@ def piecewise(t, v, min_stop_frac=0.03):
     cum_cost, biggest_cost_increase = 0.0, 0.0
 
     # list of merges we need to undo to return to last best configuration
-    unnaply_to_best = []
+    merges_since_best = []
 
     while len(seg_tracker) > 1:
         # Identify the next merge to be executed.
@@ -56,9 +55,9 @@ def piecewise(t, v, min_stop_frac=0.03):
         biggest_cost_increase = max(biggest_cost_increase, cost_increase)
         if biggest_cost_increase < min_stop_frac*cum_cost or \
                 cost_increase == biggest_cost_increase:
-            unnaply_to_best = [next_merge]
+            merges_since_best = [next_merge]
         else:
-            unnaply_to_best.append(next_merge)
+            merges_since_best.append(next_merge)
 
         # Execute the next merge.
         # Update segments, replacing the two old ones with the one new one.
@@ -72,10 +71,10 @@ def piecewise(t, v, min_stop_frac=0.03):
 
     if biggest_cost_increase < min_stop_frac*cum_cost:
         # This path is needed for the case where there is only one segment, because
-        # unnaply_to_best isn't updated after merging in the loop above.
-        unnaply_to_best = []
+        # merges_since_best isn't updated after merging in the loop above.
+        merges_since_best = []
     
-    for merge in reversed(unnaply_to_best):
+    for merge in reversed(merges_since_best):
         seg_tracker.unapply_merge(merge)
 
     fitted_segments = [
@@ -271,9 +270,10 @@ def _preprocess(t, v):
 
 
 def _get_initial_segments_and_merges(t, v):
-    """ Returns a list of Segments. Each Segment is of length 1, 2, or 3. They
-    are created by using even-indexed points as seeds and attaching odd-indexed
-    points to the neighboring seed with the closer v value.
+    """ Returns a 2-tuple with the lists of initial segments and initial merges.
+    Each Segment is of length 1, 2, or 3. They are created by using even-indexed
+    points as seeds and attaching odd-indexed points to the neighboring seed with
+    the closer v value.
     This initialization procedure exists to decrease the odds of bad initial
     merges. If initial segments were each a single point, then merging any two
     neighboring points would be equally attractive to our algorithm, because the
@@ -287,7 +287,7 @@ def _get_initial_segments_and_merges(t, v):
     """
 
     # creates segments from an array of start, end indices
-    def _init_data(ranges):
+    def _build_segments(ranges):
         # number of point in range
         n = np.diff(ranges, axis=1).reshape(-1)
         
@@ -378,11 +378,11 @@ def _get_initial_segments_and_merges(t, v):
 
     # initial segment ranges are at even indices
     segment_ranges = index_ranges[::2]
-    segments = _init_data(segment_ranges)
+    segments = _build_segments(segment_ranges)
 
     # merge every consecutive segment
     merge_ranges = np.c_[segment_ranges[:-1,0], segment_ranges[1:,1]]
-    merge_segments = _init_data(merge_ranges)
+    merge_segments = _build_segments(merge_ranges)
     
     merges = [
         Merge(
@@ -410,8 +410,9 @@ def _get_next_merge(merges, segment_tracker):
 
 
 def _make_segment(t, v, left_seg, right_seg):
-    """ Returns a Segment that starts at start_index and ends at
-    the non-inclusive end_index.
+    """ Returns a Segment that is the merge of left_seg and right_seg,
+    starting at left_seg.start_index and ending at the non-inclusive
+    right_seg.end_index.
     """
     start_index = left_seg.start_index
     end_index = right_seg.end_index

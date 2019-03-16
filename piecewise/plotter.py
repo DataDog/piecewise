@@ -13,7 +13,7 @@ def piecewise_plot(t, v, min_stop_frac=0.03, model=None):
             a merge must account for to be considered "too big" to keep merging;
             the default is usually adequate, but this may be increased to make
             merging more aggressive (leading to fewer segments in the result)
-        model (FittedModel) a previously fit model, if available
+        model (FittedModel): a previously fit model, if available
     Returns:
         None.
     """
