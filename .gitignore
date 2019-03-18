@@ -1,5 +1,9 @@
 *.pyc
 
+# tox and pyenv
+.python-version
+.tox/
+
 # Ignore files generated during `python setup.py install`
 build/
 dist/
